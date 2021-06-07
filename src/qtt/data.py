@@ -226,22 +226,7 @@ def default_setpoint_array(dataset, measured_name='measured'):
 # %% Monkey patch qcodes to store latest dataset
 
 
-@qtt.utilities.tools.deprecated
-def store_latest_decorator(function, obj):
-    """ Decorator to store latest result of a function in an object """
-    if not hasattr(obj, '_latest'):
-        obj._latest = None
-
-    @wraps(function)
-    def wrapper(*args, **kwargs):
-        ds = function(*args, **kwargs)
-        obj._latest = ds  # store the latest result
-        return ds
-
-    wrapper._special = 'yes'
-    return wrapper
-
-
+@qtt.utilities.tools.rdeprecated(txt='Method will be removed in future release of qtt.', expire='Jan 1 2021')
 def get_latest_dataset():
     """ Return latest dataset that was created """
     return getattr(DataSet._latest, None)
@@ -771,7 +756,7 @@ class image_transform:
     def istep_step(self):
         return np.mean(np.diff(self.vstep))
 
-    @qtt.utilities.tools.deprecated
+    @qtt.utilities.tools.rdeprecated(txt='Method will be removed in future release of qtt.', expire='Jan 1 2021')
     def istep(self):
         return self.scan_resolution()
 
@@ -944,43 +929,6 @@ def write_data(mfile: str, data):
         pickle.dump(data, fid)
 
 
-@qtt.utilities.tools.rdeprecated(txt='Method will be removed in future release of qtt', expire='1-1-2019')
-def loadDataset(path):
-    """ Wrapper function
-
-    :param path: filename without extension
-    :returns dateset, metadata:
-    """
-    dataset = qcodes.data.data_set.load_data(path)
-
-    mfile = os.path.join(path, 'qtt-metadata')
-    metadata = load_data(mfile)
-    return dataset, metadata
-
-
-@qtt.utilities.tools.rdeprecated(txt='Method will be removed in future release of qtt', expire='1-1-2019')
-def writeDataset(path, dataset, metadata=None):
-    """ Wrapper function
-
-    :param path: filename without extension
-    """
-
-    dataset = qtt.utilities.tools.stripDataset(dataset)
-
-    print('write_copy to %s' % path)
-    dataset.write_copy(path=path)
-    print('write_copy to %s (done)' % path)
-
-    # already done in write_copy...
-    # dataset.save_metadata(path=path)
-
-    if metadata is None:
-        metadata = dataset.metadata
-
-    mfile = os.path.join(path, 'qtt-metadata')
-    write_data(mfile, metadata)
-
-
 def getTimeString(t=None):
     """ Return time string for datetime.datetime object """
     if t is None:
@@ -1031,23 +979,6 @@ def experimentFile(outputdir: str = '', tag=None, dstr=None, bname=None):
         qtt.utilities.tools.mkdirc(os.path.join(outputdir, tag))
     pfile = os.path.join(outputdir, tag, basename + '.' + ext)
     return pfile
-
-
-@qtt.utilities.tools.rdeprecated(txt='Method will be removed in future release of qtt', expire='1-1-2020')
-def loadExperimentData(outputdir, tag, dstr):
-    path = experimentFile(outputdir, tag=tag, dstr=dstr)
-    logging.info('loadExperimentdata %s' % path)
-    dataset = pgeometry.load(path)
-
-    dataset = load_data(path)
-    return dataset
-
-
-@qtt.utilities.tools.rdeprecated(txt='Method will be removed in future release of qtt', expire='1-1-2020')
-def saveExperimentData(outputdir, dataset, tag, dstr):
-    path = experimentFile(outputdir, tag=tag, dstr=dstr)
-    logging.info('saveExperimentData %s' % path)
-    write_data(path, dataset)
 
 
 def determine_parameter_unit(parameter):
@@ -1135,8 +1066,8 @@ def _make_data_set(measured_data_list, measurement_list, measurement_unit, locat
         if measured_data_list is not None and measured_data_list[idm] is not None:
             measured_array = np.array(measured_data_list[idm])
             if measured_array.shape != preset_data.shape:
-                logger.warning(f'Shape of measured data {preset_data.shape} does not match '
-                               f'setpoint shape {measured_array.shape}')
+                logger.warning(f'Shape of measured data {measured_array.shape} does not match '
+                               f'setpoint shape {preset_data.shape}')
 
             getattr(data_set, mname).ndarray = measured_array
 
@@ -1178,7 +1109,12 @@ def makeDataSet1Dplain(xname, x, yname, y=None, xunit=None, yunit=None, location
     setpoint_data = np.array(x)
     preset_data = np.NaN * np.ones(setpoint_data.size)
     if y is not None:
-        y = np.array(y)
+        if isinstance(y, np.ndarray):
+            y = np.array(y, dtype=y.dtype)
+        elif isinstance(y, list) and y:
+            y = np.array(y, dtype=type(y[0]))
+        else:
+            y = np.array(y)
 
     setpoint = DataArray(name=xname, array_id=xname, preset_data=setpoint_data, unit=xunit, is_setpoint=True)
 

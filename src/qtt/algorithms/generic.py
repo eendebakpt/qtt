@@ -34,7 +34,7 @@ import scipy.ndimage
 def nonmaxsuppts(v, d, minval=None):
     """ Calculate maximum points in data """
     # input = np.sin(np.linspace(0, 4*np.pi, 20))
-    # x = (input * 10).astype(np.int) # Makes it easier to read
+    # x = (input * 10).astype(int) # Makes it easier to read
     w = scipy.ndimage.maximum_filter1d(v, d, axis=0)
     pt = (w == v).nonzero()[0]
     if minval:
@@ -212,7 +212,7 @@ def scaleImage(image, display_min=None, display_max=None):
     image.clip(display_min, display_max, out=image)
     if image.dtype == np.uint8:
         image -= int(display_min)
-        image = image.astype(np.float)
+        image = image.astype(float)
         image //= (display_max - display_min) / 255.
     else:
         image -= display_min
@@ -404,22 +404,6 @@ def extent2fullextent(extent0, im):
     extent = [extent0[0] - dx / 2, extent0[1] + dx /
               2, extent0[2] - dy / 2, extent0[3] + dy / 2]
     return extent
-
-
-@qtt.utilities.tools.deprecated
-def show2Dimage(im, dd, **kwargs):
-    """ Show image in window
-
-    Arguments
-    ---------
-    im : array
-        image to show
-    dd : dict with scan data
-        data is used to scale the image to measurement resolution
-
-    """
-    _ = show2D(dd, im=im, **kwargs)
-    return None
 
 
 def getValuePixel(imx, pt):

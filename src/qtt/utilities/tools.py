@@ -1,62 +1,62 @@
+import contextlib
 import copy
-from collections import OrderedDict
-from typing import Type
-import dateutil
-import sys
-import os
-import numpy as np
-import pprint
-import matplotlib
-import uuid
-import logging
-import qcodes
-import warnings
-import functools
-import pickle
-import inspect
-import tempfile
-from itertools import chain
-import scipy.ndimage as ndimage
-from functools import wraps
 import datetime
-import time
+import functools
 import importlib
+import inspect
+import logging
+from typing import Type, Optional, Tuple, Union
+import dateutil
+import os
+import pickle
 import platform
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
+import pprint
+import sys
+import tempfile
+import time
+import uuid
+import warnings
+from collections import OrderedDict
+from functools import wraps
+from itertools import chain
 
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import qcodes
+import scipy.ndimage as ndimage
+from matplotlib.widgets import Button
+from qcodes.data.data_array import DataArray
 from qcodes.data.data_set import DataSet
+from qcodes.plots.qcmatplotlib import MatPlot
+
+import qtt.pgeometry
+from qtt.pgeometry import (mkdirc,  # import for backwards compatibility
+                           mpl2clipboard, tilefigs)
 
 NotGitRepositoryError: Type[Exception]
 
 try:
-    from dulwich.repo import Repo, NotGitRepository
     from dulwich import porcelain
+    from dulwich.repo import NotGitRepository, Repo
     NotGitRepositoryError = NotGitRepository
 except ModuleNotFoundError:
     warnings.warn('please install dulwich: pip install dulwich --global-option="--pure"')
     NotGitRepositoryError = Exception
 
 # explicit import
-from qcodes.plots.qcmatplotlib import MatPlot
 
 try:
     from qcodes.plots.pyqtgraph import QtPlot
 except BaseException:
     pass
 
-from qcodes.data.data_array import DataArray
-
-import qtt.pgeometry
-from qtt.pgeometry import mpl2clipboard
-
-from qtt.pgeometry import tilefigs, mkdirc  # import for backwards compatibility
 
 # do NOT load any other qtt submodules here
 
 try:
-    import qtpy.QtGui as QtGui
     import qtpy.QtCore as QtCore
+    import qtpy.QtGui as QtGui
     import qtpy.QtWidgets as QtWidgets
 except BaseException:
     pass
@@ -64,8 +64,33 @@ except BaseException:
 
 # %%
 
-from typing import Optional
-import contextlib
+class measure_time():
+        """ Create context manager that measures execution time and prints to stdout """
+
+        def __init__(self, message: Optional[str] = 'dt: '):
+            self.message = message
+
+        def __enter__(self):
+            self.start_time = time.time()
+            return self
+
+        @property
+        def delta_time(self) -> float:
+            """ Return time spend in the context
+
+            Returns:
+                Time in seconds
+            """
+            return self.dt
+
+        def __exit__(self, exc_type, exc_value, exc_traceback):
+            self.dt = time.time() - self.start_time
+
+            if self.message is not None:
+                print(f'{self.message} {self.dt:.3f} [s]')
+
+
+
 @contextlib.contextmanager
 def logging_context(level: int = logging.INFO, logger: Optional[logging.Logger] = None):
     """ A context manager that changes the logging level
@@ -234,6 +259,7 @@ def rdeprecated(txt=None, expire=None):
         expire (str): date of expiration.
     """
     import datetime
+
     from dateutil import parser
     if expire is not None:
         now = datetime.datetime.now()
@@ -531,34 +557,6 @@ def scanTime(dd):
     return w
 
 
-@rdeprecated(txt='Use dataset.default_parameter_array instead', expire='1 Sep 2019')
-def plot_parameter(data, default_parameter='amplitude'):
-    """ Return parameter to be plotted."""
-    if 'main_parameter' in data.metadata.keys():
-        return data.metadata['main_parameter']
-    if default_parameter in data.arrays.keys():
-        return default_parameter
-    try:
-        key = next(iter(data.arrays.keys()))
-        return key
-    except BaseException:
-        return None
-
-
-@rdeprecated(txt='Use plot_dataset instead', expire='1 Sep 2019')
-def plot1D(dataset, fig=1):
-    """ Simple plot function."""
-    if isinstance(dataset, DataArray):
-        array = dataset
-        dataset = None
-    else:
-        # assume we have a dataset
-        arrayname = plot_parameter(dataset)
-        array = getattr(dataset, arrayname)
-
-    if fig is not None and array is not None:
-        MatPlot(array, num=fig)
-
 
 # %%
 
@@ -584,55 +582,8 @@ def showImage(im, extent=None, fig=None, title=None):
             plt.title(title)
 
 
-# %% Measurement tools
-
-@rdeprecated(txt='Use gates.resetgates instead', expire='1 Sep 2019')
-def resetgates(gates, activegates, basevalues=None, verbose=2):
-    """ Reset a set of gates to default values.
-
-    Args:
-        gates : list of gates.
-        activegates (list or dict): list of gates to reset.
-        basevalues (dict): new values for the gates.
-        verbose (int): output level.
-
-    """
-    if verbose:
-        print('resetgates: setting gates to default values')
-    for g in activegates:
-        if basevalues is None:
-            val = 0
-        else:
-            if g in basevalues.keys():
-                val = basevalues[g]
-            else:
-                val = 0
-        if verbose >= 2:
-            print('  setting gate %s to %.1f [mV]' % (g, val))
-        gates.set(g, val)
-
 
 # %% Tools from pgeometry
-
-
-@rdeprecated(txt='Use qtt.pgeometry.plot2Dline instead', expire='1 Sep 2019')
-def plot2Dline(line, *args, **kwargs):
-    """ Plot a 2D line in a matplotlib figure.
-
-    Args:
-        line (array): 3x1 array.
-
-    >>> plot2Dline([-1,1,0], 'b')
-    """
-    if np.abs(line[1]) > .001:
-        xx = plt.xlim()
-        xx = np.array(xx)
-        yy = (-line[2] - line[0] * xx) / line[1]
-        plt.plot(xx, yy, *args, **kwargs)
-    else:
-        yy = np.array(plt.ylim())
-        xx = (-line[2] - line[1] * yy) / line[0]
-        plt.plot(xx, yy, *args, **kwargs)
 
 
 def cfigure(*args, **kwargs):
@@ -814,21 +765,23 @@ def _ppt_determine_image_position(ppt, figsize, fname, verbose=1):
     return left, top, width, height
 
 
-def create_figure_ppt_callback(fig, title=None, notes=None, position=(0.9, 0.925, 0.075, 0.05)):
-    """ Create a callback on a matplotlib figure to copy data to PowerPoint slide.
+def create_figure_ppt_callback(fig : Optional[int] = None, title : Optional[str] = None,
+                       notes : Optional[Union[str, DataSet]]=None,
+                       position : Tuple[float, float, float, float] = (0.9, 0.925, 0.075, 0.05)) -> None:
+    """ Create a button on a matplotlib figure to copy data to PowerPoint slide.
 
     The figure is copied to PowerPoint using @ref addPPTslide.
 
     Args:
-        fig (int): handle to matplotlib window.
-        title (None or str): title for the slide.
-        notes (None or str or DataSet): notes to add to the slide.
-        position (list): position specified as fraction left, right, width, height.
+        fig: Handle to matplotlib window. If None, then use the current figure
+        title: title for the slide.
+        notes: notes to add to the slide.
+        position: position specified as fraction left, right, width, height.
 
     Example:
         >>> plt.figure(10)
         >>> plt.plot(np.arange(100), np.random.rand(100), 'o', label='input data')
-        >>> create_figure_ppt_callback(10, 'test')
+        >>> create_figure_ppt_callback(fig=10, title='test')
         >>> plt.show()
     """
     if fig is None:
@@ -1018,7 +971,7 @@ try:
                     raise TypeError('figure is of an unknown type %s' % (type(fig),))
             top = 120
 
-            left, top, width, height = _ppt_determine_image_position(ppt, figsize, fname, verbose=1)
+            left, top, width, height = _ppt_determine_image_position(ppt, figsize, fname, verbose=verbose>=2)
 
             if verbose >= 2:
                 print('fname %s' % fname)
@@ -1275,22 +1228,6 @@ def updatePlotTitle(qplot, basetxt='Live plot'):
     txt = basetxt + ' (%s)' % time.asctime()
     qplot.win.setWindowTitle(txt)
 
-
-@rdeprecated(txt='Method will be removed in future release of qtt.', expire='1 Sep 2018')
-def timeProgress(data):
-    """ Simple progress meter, should be integrated with either loop or data object."""
-    data.sync()
-    tt = data.arrays['timestamp']
-    vv = ~np.isnan(tt)
-    ttx = tt[vv]
-    t0 = ttx[0]
-    t1 = ttx[-1]
-
-    logging.debug('t0 %f t1 %f' % (t0, t1))
-
-    fraction = ttx.size / tt.size[0]
-    remaining = (t1 - t0) * (1 - fraction) / fraction
-    return fraction, remaining
 
 
 # %%

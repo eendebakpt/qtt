@@ -28,16 +28,17 @@
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc',
+extensions = [
+    'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx_rtd_theme',
     'sphinx.ext.viewcode',
     'sphinx.ext.mathjax',
     'sphinx.ext.autosummary',
+    'sphinx_copybutton',
     'nbsphinx']
 extensions += ['sphinx.ext.intersphinx']
 extensions += ['sphinx.ext.autosectionlabel']
-
 extensions += ['sphinx_automodapi.automodapi']
 
 if 0:
@@ -126,7 +127,7 @@ language = None
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = ['_build', 'Thumbs.db', 'legacy.py', '.DS_Store', 'untitled.*py',
-                'notebooks/.ipynb_checkpoints', '../src/qtt/loggingGUI.py', '../src/qtt/debug.py', '../src/qtt/legacy.py',  'src/qtt/scans.py', '../src/qtt/deprecated/*']
+                'notebooks/.ipynb_checkpoints', '../src/qtt/deprecated/*']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
