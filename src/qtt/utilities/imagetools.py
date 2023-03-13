@@ -132,14 +132,14 @@ def cleanSensingImage(im, dy=0, sigma=None, order=3, fixreversal=True, removeout
     else:
         imx = diffImageSmooth(im, dy=dy, sigma=sigma)
     if order >= 0:
-        vv = fitBackground(imx, smooth=True, verbose=verbose, fig=None,
+        background = fitBackground(imx, smooth=True, verbose=verbose, fig=None,
                            order=int(order), removeoutliers=removeoutliers)
-        ww = (imx - vv).copy()
+        cleaned_image = imx - background
     else:
-        ww = imx.copy()
+        cleaned_image = imx.copy()
     if fixreversal:
-        ww = fixReversal(ww, verbose=verbose)
-    return ww
+        cleaned_image = fixReversal(cleaned_image, verbose=verbose)
+    return cleaned_image
 
 
 def _showIm(ims, fig=1, title=''):
